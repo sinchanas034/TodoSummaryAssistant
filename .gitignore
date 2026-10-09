@@ -4,3 +4,5 @@ node_modules/
 build/
 *.pem
 .idea/
+.env.*
+!.env.example
