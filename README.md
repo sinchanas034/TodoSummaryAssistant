@@ -45,7 +45,6 @@ Diagram: `aws/architecture-diagram.png`. AWS details: `aws/aws-setup.md`.
    npm install
    npm start
    ```
-4. Or with Docker: `docker compose up --build`
 
 ### Environment variables
 
@@ -104,3 +103,28 @@ No business logic was changed.
 
 - HTTP only (no TLS/domain). Production would add HTTPS through a load balancer or reverse proxy.
 - Single EC2 instance, so no high availability.
+
+## Monitoring setup on the server
+
+Run once on the EC2 instance (the deploy pipeline does not start these containers):
+
+```bash
+mkdir -p ~/monitoring
+# copy monitoring/prometheus.yml and monitoring/alert-rules.yml from this repo into ~/monitoring
+
+docker network create appnet 2>/dev/null || true
+
+docker run -d --name node-exporter --network appnet --restart unless-stopped \
+  -v /:/host:ro,rslave prom/node-exporter --path.rootfs=/host
+
+docker run -d --name prometheus --network appnet --restart unless-stopped \
+  -p 9090:9090 \
+  -v ~/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+  -v ~/monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml \
+  prom/prometheus
+
+docker run -d --name grafana --network appnet --restart unless-stopped \
+  -p 3001:3000 grafana/grafana
+```
+
+Then open Grafana on port 3001, add the Prometheus data source `http://prometheus:9090`, and import `monitoring/grafana-dashboard.json` and dashboard ID 1860.
