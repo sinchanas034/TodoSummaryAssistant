@@ -1,0 +1,47 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Run backend tests
+        working-directory: Backend/todo-summary-assistant
+        run: ./mvnw -B test
+
+  build-and-push:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: Backend/todo-summary-assistant
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/todo-backend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/todo-backend:latest
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: Frontend/todo
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend:latest
